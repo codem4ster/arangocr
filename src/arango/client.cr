@@ -1,37 +1,50 @@
 class Arango::Client
+  getter :user
   setter :async
+  Exception = ::Exception
 
-  def initialize(@endpoint : String, @user : String,
-                 @password : String, @database : String)
-    @jwt = ""
+  def self.from_config(yaml_file_path : String, 
+                       identifier : String = "default",
+                       env : String = "development")
+    config = YAML.parse(File.read(yaml_file_path))
+    config["arangodb"][env].each do |ident, db|
+      if ident == identifier
+        user = Arango::User.new(db["user"].as_s, db["password"].as_s)
+        Database.client =  Arango::Client.new(db["endpoint"].as_s, user)
+      end
+    end
+    Database.client
+  end
+
+  def initialize(@endpoint : String, @user : Arango::User)
     uri = URI.parse("#{@endpoint}")
     @http = HTTP::Client.new uri
     @async = false
-    response = @http.post_form(
-      "/_open/auth",
-      {"username" => @user, "password" => @password}.to_json
-    )
-    if response.status_code == 200
-      @jwt = JSON.parse(response.body)["jwt"].to_s
-    elsif response.status_code == 404
-      puts "Warning! It looks like you are using a passwordless configuration!"
-    else
-      puts "Error #{response.status_code} #{response.status_message}"
-    end
+    @user.authenticate @http
   end
 
-  def database
-    Database.new(self, @database)
+  def database(database_name : String)
+    Database.current = Database.new(database_name, self)
   end
 
   def get(url : String)
     response = @http.get(url, headers)
-    JSON.parse(response.body)
+    result = JSON.parse(response.body)
+    if result["error"] == true
+      raise Exception.new "Http Api Error : #{result["code"]} #{result["errorMessage"]}"
+    end
+    result
   end
 
   def post(url : String, body : Hash | Array)
     response = @http.post(url, headers: headers, body: body.to_json)
-    JSON.parse(response.body)
+    pp headers
+    pp body.to_json
+    result = JSON.parse(response.body)
+    if result["error"] == true
+      raise Exception.new "Http Api Error : #{result["code"]} #{result["errorMessage"]}"
+    end
+    result
   end
 
   def patch(url : String, body : Hash | Array)
@@ -61,9 +74,9 @@ class Arango::Client
 
   private def headers
     if @async
-      HTTP::Headers{"Authorization" => "bearer #{@jwt}", "x-arango-async" => "true"}
+      HTTP::Headers{"Authorization" => "bearer #{@user.jwt}", "x-arango-async" => "true"}
     else
-      HTTP::Headers{"Authorization" => "bearer #{@jwt}"}
+      HTTP::Headers{"Authorization" => "bearer #{@user.jwt}"}
     end
   end
 end
