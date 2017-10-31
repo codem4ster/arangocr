@@ -11,6 +11,11 @@ class Arango::Collection
     Arango::Database.client
   end
 
+  def self.query(query_string : String, variables = {} of String => String)
+    runner = Query::Runner.new(query_string)
+    runner.run(variables)
+  end
+
   def self.create(collection_name : String, properties = {} of String => String)
     body = {"name" => collection_name}
     body.merge! properties

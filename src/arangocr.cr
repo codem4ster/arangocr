@@ -1,7 +1,7 @@
 require "http/client"
 require "json"
 require "./nil_object"
-require "./arango/*"
+require "./arango/**"
 
 module Arango
   alias NillableDatabase = Database | NilObject

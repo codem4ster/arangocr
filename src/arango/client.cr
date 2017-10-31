@@ -38,8 +38,6 @@ class Arango::Client
 
   def post(url : String, body : Hash | Array)
     response = @http.post(url, headers: headers, body: body.to_json)
-    pp headers
-    pp body.to_json
     result = JSON.parse(response.body)
     if result["error"] == true
       raise Exception.new "Http Api Error : #{result["code"]} #{result["errorMessage"]}"

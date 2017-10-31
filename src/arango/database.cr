@@ -44,7 +44,7 @@ class Arango::Database
   end
 
   def self.from_config(yaml_file_path : String, 
-                       identifier : String | Nil = nil,
+                       identifier : String = "default",
                        env : String = "development")
     config = YAML.parse(File.read(yaml_file_path))
     config["arangodb"][env].each do |ident, db| 
@@ -53,7 +53,7 @@ class Arango::Database
       self.client = client
       self.new(db["name"].as_s, client, ident.as_s)
     end
-    return @@current = self.instances[identifier] unless identifier.nil?
+    return @@current = self.instances[identifier]
     self.instances
   end
 
